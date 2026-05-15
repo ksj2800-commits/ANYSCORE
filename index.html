@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>실시간 마스터 스코어보드 (모바일 대응 최종본)</title>
+    <title>실시간 마스터 스코어보드 (상태 유지 버전)</title>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Firebase 설정 (본인의 정보를 입력하세요)
         const firebaseConfig = {
   apiKey: "AIzaSyCppwwqDemt3_87UFgiiePPgozNjGzV6_g",
   authDomain: "anyscore-ba667.firebaseapp.com",
@@ -27,6 +26,10 @@
         const params = new URLSearchParams(window.location.search);
         const isControlMode = params.get('mode') === 'control';
 
+        // 전역 변수로 타이머 관리
+        window.seconds = 0;
+        window.timer = null;
+
         window.onload = () => {
             if (!isControlMode) {
                 document.getElementById('control-panel').style.display = 'none';
@@ -37,7 +40,21 @@
                 });
             } else {
                 document.body.style.backgroundColor = '#1a1a1a';
-                // 모바일에서 제어판 확인 시 스코어보드 미리보기를 작게 조정
+                // 제어판 모드일 때: DB에서 기존 값을 한 번 가져와서 입력창들에 채우기
+                get(scoreRef).then((snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        updateDisplay(data);
+                        syncControlPanel(data);
+                    }
+                });
+                
+                // 실시간 변경사항도 제어판에 반영 (다른 기기에서 수정 시 동기화)
+                onValue(scoreRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) updateDisplay(data);
+                });
+
                 const sb = document.querySelector('.scoreboard');
                 if(window.innerWidth < 1000) {
                     sb.style.transform = "scale(0.23)";
@@ -49,6 +66,25 @@
                 }
             }
         };
+
+        // DB 데이터를 제어판 입력창들에 채워넣는 함수
+        function syncControlPanel(data) {
+            if (data.awayName) document.getElementById('input-away-name').value = data.awayName;
+            if (data.homeName) document.getElementById('input-home-name').value = data.homeName;
+            if (data.title) document.getElementById('input-title').value = data.title;
+            if (data.awayBg) document.getElementById('picker-away').value = data.awayBg;
+            if (data.homeBg) document.getElementById('picker-home').value = data.homeBg;
+            if (data.mainThemeBg) document.getElementById('picker-main-theme').value = data.mainThemeBg;
+            if (data.awayFontSize) document.getElementById('slider-away').value = parseInt(data.awayFontSize);
+            if (data.homeFontSize) document.getElementById('slider-home').value = parseInt(data.homeFontSize);
+            if (data.period) document.getElementById('select-period').value = data.period;
+            
+            // 시간 복구 (00:00 형태를 초 단위로 변환)
+            if (data.time) {
+                const parts = data.time.split(':');
+                window.seconds = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+            }
+        }
 
         window.syncToDB = function() {
             if (!isControlMode) return;
@@ -76,25 +112,33 @@
         };
 
         function updateDisplay(data) {
-            document.getElementById('away-col-3').innerText = data.awayScore;
-            document.getElementById('home-col-1').innerText = data.homeScore;
-            document.getElementById('away-col-2').innerText = data.awayName;
-            document.getElementById('home-col-2').innerText = data.homeName;
-            document.getElementById('display-time').innerText = data.time;
-            document.getElementById('display-period').innerText = data.period;
-            document.getElementById('display-tournament-text').innerText = data.title;
-            document.getElementById('away-col-2').style.fontSize = data.awayFontSize;
-            document.getElementById('home-col-2').style.fontSize = data.homeFontSize;
+            document.getElementById('away-col-3').innerText = data.awayScore || '0';
+            document.getElementById('home-col-1').innerText = data.homeScore || '0';
+            document.getElementById('away-col-2').innerText = data.awayName || 'AWAY';
+            document.getElementById('home-col-2').innerText = data.homeName || 'HOME';
+            document.getElementById('display-time').innerText = data.time || '00:00';
+            document.getElementById('display-period').innerText = data.period || '1st Half';
+            document.getElementById('display-tournament-text').innerText = data.title || 'PREMIER SPORTS LEAGUE';
+            
+            document.getElementById('away-col-2').style.fontSize = data.awayFontSize || '68px';
+            document.getElementById('home-col-2').style.fontSize = data.homeFontSize || '68px';
+            
             const awayParts = ['away-col-1','away-col-2','away-col-3'];
             const homeParts = ['home-col-1','home-col-2','home-col-3'];
-            awayParts.forEach(id => { const el = document.getElementById(id); el.style.backgroundColor = data.awayBg; el.style.color = data.awayColor; });
-            homeParts.forEach(id => { const el = document.getElementById(id); el.style.backgroundColor = data.homeBg; el.style.color = data.homeColor; });
-            document.getElementById('display-tournament-box').style.backgroundColor = data.mainThemeBg;
-            document.getElementById('display-tournament-box').style.color = data.mainThemeColor;
-            document.getElementById('clock-box').style.backgroundColor = data.mainThemeBg;
-            document.getElementById('clock-box').style.color = data.mainThemeColor;
-            if(data.timeVisible) document.getElementById('display-time').classList.remove('time-hidden');
-            else document.getElementById('display-time').classList.add('time-hidden');
+            
+            if(data.awayBg) awayParts.forEach(id => { const el = document.getElementById(id); el.style.backgroundColor = data.awayBg; el.style.color = data.awayColor; });
+            if(data.homeBg) homeParts.forEach(id => { const el = document.getElementById(id); el.style.backgroundColor = data.homeBg; el.style.color = data.homeColor; });
+
+            if(data.mainThemeBg) {
+                document.getElementById('display-tournament-box').style.backgroundColor = data.mainThemeBg;
+                document.getElementById('display-tournament-box').style.color = data.mainThemeColor;
+                document.getElementById('clock-box').style.backgroundColor = data.mainThemeBg;
+                document.getElementById('clock-box').style.color = data.mainThemeColor;
+            }
+            
+            if(data.timeVisible === false) document.getElementById('display-time').classList.add('time-hidden');
+            else document.getElementById('display-time').classList.remove('time-hidden');
+
             if(data.awayLogo && data.awayLogo.length > 50) { const img = document.getElementById('away-logo-img'); img.src = data.awayLogo; img.style.display = 'block'; }
             if(data.homeLogo && data.homeLogo.length > 50) { const img = document.getElementById('home-logo-img'); img.src = data.homeLogo; img.style.display = 'block'; }
         }
@@ -102,66 +146,38 @@
 
     <style>
         body { margin: 0; font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 15px; overflow-x: hidden; }
-        
-        /* 1500px 고해상도 유지 */
-        .scoreboard { 
-            width: 1500px; 
-            min-width: 1500px;
-            background-color: #fff; 
-            border: 9px double #444; 
-            border-radius: 22px; 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; 
-            box-shadow: 0 15px 45px rgba(0,0,0,0.3); 
-            box-sizing: border-box;
-        }
-        
+        .scoreboard { width: 1500px; min-width: 1500px; background-color: #fff; border: 9px double #444; border-radius: 22px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 15px 45px rgba(0,0,0,0.3); box-sizing: border-box; }
         .title-row { height: 75px; background-color: rgb(5, 0, 82); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 42px; font-weight: 900; text-transform: uppercase; }
         .main-row { height: 128px; display: flex; align-items: stretch; }
         .logo-area { width: 128px; padding: 8px; display: flex; align-items: center; justify-content: center; }
         .logo-area img { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
-
-        /* ⭐ 2px 추가 보정으로 0px(완전 정중앙) 설정 */
         .team-area { flex: 1; font-size: 68px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; transform: translateY(0px); }
         .score-area { width: 150px; font-size: 90px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; transform: translateY(0px); }
-
         .info-area { width: 270px; flex-direction: column; background-color: rgb(5, 0, 82); color: #fff; display: flex; align-items: center; justify-content: center; }
         .time-hidden { visibility: hidden; opacity: 0; }
-
-        /* 제어판 스타일 (모바일 최적화) */
         .control-panel { width: 100%; max-width: 1500px; background: #333; padding: 25px; border-radius: 15px; color: white; box-sizing: border-box; }
         .ctrl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
         .ctrl-section { background: #222; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #444; }
-        
         h4 { margin: 0 0 10px 0; font-size: 20px; border-left: 5px solid #2196F3; padding-left: 10px; }
         button { padding: 14px 10px; cursor: pointer; font-weight: bold; border: none; border-radius: 6px; color: white; background: #555; font-size: 16px; }
         button:active { filter: brightness(1.3); }
         input[type="text"], select { padding: 12px; background: #111; color: white; border: 1px solid #444; border-radius: 6px; font-size: 16px; }
         .color-label { font-size: 14px; color: #bbb; margin-bottom: -5px; }
-
-        @media (max-width: 768px) {
-            .ctrl-grid { grid-template-columns: 1fr; }
-            button { font-size: 18px; padding: 18px; }
-        }
+        @media (max-width: 768px) { .ctrl-grid { grid-template-columns: 1fr; } button { font-size: 18px; padding: 18px; } }
     </style>
 </head>
 <body>
 
     <div class="scoreboard">
-        <div class="title-row" id="display-tournament-box">
-            <span id="display-tournament-text">PREMIER SPORTS LEAGUE</span>
-        </div>
+        <div class="title-row" id="display-tournament-box"><span id="display-tournament-text">PREMIER SPORTS LEAGUE</span></div>
         <div class="main-row">
             <div class="logo-area" id="away-col-1"><img id="away-logo-img"></div>
             <div class="team-area" id="away-col-2">AWAY</div>
             <div class="score-area" id="away-col-3">0</div>
-            
             <div class="info-area" id="clock-box">
                 <span id="display-period" style="font-size:30px; font-weight:bold; margin-bottom: 3px;">1st Half</span>
                 <span id="display-time" style="font-size:45px; font-weight:900; line-height: 1;">00:00</span>
             </div>
-
             <div class="score-area" id="home-col-1">0</div>
             <div class="team-area" id="home-col-2">HOME</div>
             <div class="logo-area" id="home-col-3"><img id="home-logo-img"></div>
@@ -170,7 +186,6 @@
 
     <div class="control-panel" id="control-panel">
         <div class="ctrl-grid">
-            <!-- AWAY -->
             <div class="ctrl-section">
                 <h4>🟦 AWAY 설정</h4>
                 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
@@ -183,12 +198,11 @@
                 <input type="text" id="input-away-name" placeholder="AWAY 팀명">
                 <button onclick="applyName('away')" style="background:#2196F3">팀명 적용</button>
                 <div class="color-label">배경색 / 글자 크기:</div>
-                <input type="color" id="picker-away" style="width:100%; height:45px; border:none; background:none;" oninput="changeColor('away', this.value)">
+                <input type="color" id="picker-away" style="width:100%; height:45px;" oninput="changeColor('away', this.value)">
                 <input type="range" id="slider-away" min="30" max="100" value="68" oninput="changeFontSize('away', this.value)">
-                <input type="file" onchange="loadLogo(event, 'away-logo-img')" style="font-size:12px;">
+                <input type="file" onchange="loadLogo(event, 'away-logo-img')">
             </div>
 
-            <!-- COMMON -->
             <div class="ctrl-section">
                 <h4>⏱ 공통 설정</h4>
                 <div style="display:flex; gap:8px;">
@@ -197,43 +211,18 @@
                 </div>
                 <button onclick="resetTimer()" style="background:#c62828;">시간 초기화</button>
                 <button onclick="toggleClock()" style="background:#673ab7">시계 보임/숨김</button>
-                <button onclick="swapCourts()" style="background:#ff9800">코트 체인지 (좌우 반전)</button>
-                
+                <button onclick="swapCourts()" style="background:#ff9800">코트 체인지</button>
                 <select id="select-period" onchange="updatePeriod()">
-                    <optgroup label="축구/일반">
-                        <option value="1st Half">전반전</option>
-                        <option value="2nd Half">후반전</option>
-                        <option value="1st OT">연장 전반</option>
-                        <option value="2nd OT">연장 후반</option>
-                        <option value="Shootout">Shootout (승부차기)</option>
-                    </optgroup>
-                    <optgroup label="농구/쿼터제">
-                        <option value="1st Quarter">1쿼터</option>
-                        <option value="2nd Quarter">2쿼터</option>
-                        <option value="3rd Quarter">3쿼터</option>
-                        <option value="4th Quarter">4쿼터</option>
-                        <option value="Overtime">연장전 (OT)</option>
-                    </optgroup>
-                    <optgroup label="세트제 (배구/탁구)">
-                        <option value="Set 1">1세트</option>
-                        <option value="Set 2">2세트</option>
-                        <option value="Set 3">3세트</option>
-                        <option value="Set 4">4세트</option>
-                        <option value="Set 5">5세트</option>
-                    </optgroup>
-                    <optgroup label="상태 표시">
-                        <option value="Half Time">하프타임</option>
-                        <option value="Finished">경기종료</option>
-                    </optgroup>
+                    <optgroup label="축구/일반"><option value="1st Half">전반전</option><option value="2nd Half">후반전</option><option value="1st OT">연장 전반</option><option value="2nd OT">연장 후반</option><option value="Shootout">Shootout</option></optgroup>
+                    <optgroup label="농구/쿼터제"><option value="1st Quarter">1쿼터</option><option value="2nd Quarter">2쿼터</option><option value="3rd Quarter">3쿼터</option><option value="4th Quarter">4쿼터</option><option value="Overtime">연장전 (OT)</option></optgroup>
+                    <optgroup label="세트제"><option value="Set 1">1세트</option><option value="Set 2">2세트</option><option value="Set 3">3세트</option><option value="Set 4">4세트</option><option value="Set 5">5세트</option></optgroup>
+                    <optgroup label="상태"><option value="Half Time">하프타임</option><option value="Finished">경기종료</option></optgroup>
                 </select>
-
-                <input type="text" id="input-title" placeholder="대회명/라운드 입력">
+                <input type="text" id="input-title" placeholder="대회명 입력">
                 <button onclick="applyTitle()" style="background:#2196F3">대회명 적용</button>
-                <div class="color-label">대회명/시계 배경색:</div>
-                <input type="color" id="picker-main-theme" style="width:100%; height:45px; border:none; background:none;" value="#050052" oninput="changeMainTheme(this.value)">
+                <input type="color" id="picker-main-theme" style="width:100%; height:45px;" value="#050052" oninput="changeMainTheme(this.value)">
             </div>
 
-            <!-- HOME -->
             <div class="ctrl-section">
                 <h4>🟥 HOME 설정</h4>
                 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
@@ -246,16 +235,14 @@
                 <input type="text" id="input-home-name" placeholder="HOME 팀명">
                 <button onclick="applyName('home')" style="background:#2196F3">팀명 적용</button>
                 <div class="color-label">배경색 / 글자 크기:</div>
-                <input type="color" id="picker-home" style="width:100%; height:45px; border:none; background:none;" oninput="changeColor('home', this.value)">
+                <input type="color" id="picker-home" style="width:100%; height:45px;" oninput="changeColor('home', this.value)">
                 <input type="range" id="slider-home" min="30" max="100" value="68" oninput="changeFontSize('home', this.value)">
-                <input type="file" onchange="loadLogo(event, 'home-logo-img')" style="font-size:12px;">
+                <input type="file" onchange="loadLogo(event, 'home-logo-img')">
             </div>
         </div>
     </div>
 
     <script>
-        let timer = null; let seconds = 0;
-        
         function changeMainTheme(color) {
             const textColor = getContrast(color);
             document.getElementById('display-tournament-box').style.backgroundColor = color;
@@ -264,80 +251,39 @@
             document.getElementById('clock-box').style.color = textColor;
             syncToDB();
         }
-        function updateScore(t,v){ 
-            const id=t==='away'?'away-col-3':'home-col-1'; 
-            const el=document.getElementById(id); 
-            el.innerText=Math.max(0,parseInt(el.innerText)+v); 
-            syncToDB(); 
-        }
-        function resetScore(t){ 
-            const id=t==='away'?'away-col-3':'home-col-1'; 
-            document.getElementById(id).innerText='0'; 
-            syncToDB(); 
-        }
-        function applyName(t){ 
-            const v=document.getElementById(`input-${t}-name`).value; 
-            if(v) document.getElementById(`${t}-col-2`).innerText=v; 
-            syncToDB(); 
-        }
-        function changeFontSize(t,s){ 
-            document.getElementById(`${t}-col-2`).style.fontSize=s+'px'; 
-            syncToDB(); 
-        }
+        function updateScore(t,v){ const id=t==='away'?'away-col-3':'home-col-1'; const el=document.getElementById(id); el.innerText=Math.max(0,parseInt(el.innerText)+v); syncToDB(); }
+        function resetScore(t){ const id=t==='away'?'away-col-3':'home-col-1'; document.getElementById(id).innerText='0'; syncToDB(); }
+        function applyName(t){ const v=document.getElementById(`input-${t}-name`).value; if(v) document.getElementById(`${t}-col-2`).innerText=v; syncToDB(); }
+        function changeFontSize(t,s){ document.getElementById(`${t}-col-2`).style.fontSize=s+'px'; syncToDB(); }
         function changeColor(t,c){ 
             const ct=getContrast(c); 
             ['1','2','3'].forEach(n=>{ const el=document.getElementById(`${t}-col-${n}`); el.style.backgroundColor=c; el.style.color=ct; }); 
             syncToDB(); 
         }
-        function getContrast(h){ 
-            const r=parseInt(h.substr(1,2),16), g=parseInt(h.substr(3,2),16), b=parseInt(h.substr(5,2),16); 
-            return ((r*299)+(g*587)+(b*114))/1000 >= 128 ? 'black' : 'white'; 
-        }
-        function startTimer(){ if(!timer) timer=setInterval(()=>{seconds++;updateClock();},1000); }
-        function stopTimer(){ clearInterval(timer); timer=null; syncToDB(); }
-        function resetTimer(){ stopTimer(); seconds=0; updateClock(); }
+        function getContrast(h){ const r=parseInt(h.substr(1,2),16), g=parseInt(h.substr(3,2),16), b=parseInt(h.substr(5,2),16); return ((r*299)+(g*587)+(b*114))/1000 >= 128 ? 'black' : 'white'; }
+        
+        function startTimer(){ if(!window.timer) window.timer=setInterval(()=>{window.seconds++;updateClock();},1000); }
+        function stopTimer(){ clearInterval(window.timer); window.timer=null; syncToDB(); }
+        function resetTimer(){ stopTimer(); window.seconds=0; updateClock(); syncToDB(); }
         function updateClock(){ 
-            const m=String(Math.floor(seconds/60)).padStart(2,'0'), s=String(seconds%60).padStart(2,'0'); 
+            const m=String(Math.floor(window.seconds/60)).padStart(2,'0'), s=String(window.seconds%60).padStart(2,'0'); 
             document.getElementById('display-time').innerText=`${m}:${s}`; 
             syncToDB(); 
         }
-        function updatePeriod(){ 
-            document.getElementById('display-period').innerText=document.getElementById('select-period').value; 
-            syncToDB(); 
-        }
-        function applyTitle(){ 
-            document.getElementById('display-tournament-text').innerText=document.getElementById('input-title').value; 
-            syncToDB(); 
-        }
+        function updatePeriod(){ document.getElementById('display-period').innerText=document.getElementById('select-period').value; syncToDB(); }
+        function applyTitle(){ document.getElementById('display-tournament-text').innerText=document.getElementById('input-title').value; syncToDB(); }
         function loadLogo(e, id) {
             const reader = new FileReader();
-            reader.onload = () => { 
-                const img = document.getElementById(id);
-                img.src = reader.result; 
-                img.style.display='block'; 
-                syncToDB(); 
-            };
+            reader.onload = () => { const img = document.getElementById(id); img.src = reader.result; img.style.display='block'; syncToDB(); };
             reader.readAsDataURL(e.target.files[0]);
         }
-        function toggleClock() { 
-            document.getElementById('display-time').classList.toggle('time-hidden'); 
-            syncToDB(); 
-        }
+        function toggleClock() { document.getElementById('display-time').classList.toggle('time-hidden'); syncToDB(); }
         function swapCourts(){
             const a={n:document.getElementById('away-col-2').innerText, s:document.getElementById('away-col-3').innerText, p:document.getElementById('picker-away').value, sl:document.getElementById('slider-away').value, lg:document.getElementById('away-logo-img').src};
             const h={n:document.getElementById('home-col-2').innerText, s:document.getElementById('home-col-1').innerText, p:document.getElementById('picker-home').value, sl:document.getElementById('slider-home').value, lg:document.getElementById('home-logo-img').src};
-            
-            document.getElementById('away-col-2').innerText=h.n; document.getElementById('away-col-3').innerText=h.s; 
-            document.getElementById('picker-away').value=h.p; document.getElementById('slider-away').value=h.sl; 
-            document.getElementById('away-logo-img').src=h.lg;
-            
-            document.getElementById('home-col-2').innerText=a.n; document.getElementById('home-col-1').innerText=a.s; 
-            document.getElementById('picker-home').value=a.p; document.getElementById('slider-home').value=a.sl; 
-            document.getElementById('home-logo-img').src=a.lg;
-            
-            changeColor('away',h.p); changeFontSize('away',h.sl); 
-            changeColor('home',a.p); changeFontSize('home',a.sl); 
-            syncToDB();
+            document.getElementById('away-col-2').innerText=h.n; document.getElementById('away-col-3').innerText=h.s; document.getElementById('picker-away').value=h.p; document.getElementById('slider-away').value=h.sl; document.getElementById('away-logo-img').src=h.lg;
+            document.getElementById('home-col-2').innerText=a.n; document.getElementById('home-col-1').innerText=a.s; document.getElementById('picker-home').value=a.p; document.getElementById('slider-home').value=a.sl; document.getElementById('home-logo-img').src=a.lg;
+            changeColor('away',h.p); changeFontSize('away',h.sl); changeColor('home',a.p); changeFontSize('home',a.sl); syncToDB();
         }
     </script>
 </body>
