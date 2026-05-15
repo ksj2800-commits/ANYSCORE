@@ -2,12 +2,11 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 마스터 스코어보드 (정밀 위치 조정)</title>
+    <title>실시간 마스터 스코어보드 (1.5배 확대 버전)</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Firebase 설정 (기존 본인의 설정을 입력하세요)
         const firebaseConfig = {
   apiKey: "AIzaSyCppwwqDemt3_87UFgiiePPgozNjGzV6_g",
   authDomain: "anyscore-ba667.firebaseapp.com",
@@ -93,34 +92,37 @@
     </script>
 
     <style>
-        body { margin: 0; font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        body { margin: 0; font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 30px; }
         
+        /* 1500px로 확대 */
         .scoreboard { 
-            width: 1000px; 
+            width: 1500px; 
             background-color: #fff; 
-            border: 6px double #444; 
-            border-radius: 15px; 
+            border: 9px double #444; /* 6px * 1.5 */
+            border-radius: 22px; 
             display: flex; 
             flex-direction: column; 
             overflow: hidden; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
+            box-shadow: 0 15px 45px rgba(0,0,0,0.3); 
             box-sizing: border-box;
         }
         
+        /* 대회명 영역: 75px (50 * 1.5) */
         .title-row { 
-            height: 50px; 
+            height: 75px; 
             background-color: rgb(5, 0, 82); 
             color: #fff; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
-            font-size: 28px; 
+            font-size: 42px; /* 28 * 1.5 */
             font-weight: 900; 
             text-transform: uppercase;
         }
 
+        /* 메인 데이터 영역: 128px (85 * 1.5) */
         .main-row { 
-            height: 85px; 
+            height: 128px; 
             display: flex; 
             align-items: stretch; 
             gap: 0; 
@@ -134,29 +136,30 @@
             box-sizing: border-box;
         }
 
-        .logo-area { width: 85px; padding: 5px; }
+        .logo-area { width: 128px; padding: 8px; }
         .logo-area img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
-        /* ⭐ 팀 이름 영역: 세로로 3px 이동 (올리기) */
+        /* 팀 이름: 68px (45 * 1.5) + 정밀 위치 보정(-5px) */
         .team-area { 
             flex: 1; 
-            font-size: 45px; 
+            font-size: 68px; 
             font-weight: 900; 
             line-height: 1;
-            transform: translateY(-3px); 
+            transform: translateY(-5px); 
         }
 
-        /* ⭐ 점수 영역: 세로로 3px 이동 (내리기) */
+        /* 점수: 90px (60 * 1.5) + 정밀 위치 보정(5px) */
         .score-area { 
-            width: 100px; 
-            font-size: 60px; 
+            width: 150px; /* 100 * 1.5 */
+            font-size: 90px; 
             font-weight: 900; 
             line-height: 1;
-            transform: translateY(3px); 
+            transform: translateY(5px); 
         }
 
+        /* 중앙 정보창: 270px (180 * 1.5) */
         .info-area { 
-            width: 180px; 
+            width: 270px; 
             flex-direction: column; 
             background-color: rgb(5, 0, 82); 
             color: #fff; 
@@ -164,14 +167,14 @@
 
         .time-hidden { visibility: hidden; opacity: 0; }
 
-        /* 제어판 스타일 */
-        .control-panel { margin-top: 30px; width: 1000px; background: #333; padding: 20px; border-radius: 10px; color: white; box-sizing: border-box; }
-        .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
-        .ctrl-section { background: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
-        button { padding: 8px; cursor: pointer; font-weight: bold; border: none; border-radius: 4px; color: white; background: #555; }
-        input[type="text"], select { padding: 8px; background: #111; color: white; border: 1px solid #444; border-radius: 4px; }
-        .color-label { font-size: 11px; color: #bbb; margin-bottom: -5px; margin-top: 5px; }
-        .color-picker { width: 100%; height: 25px; border: none; background: none; cursor: pointer; }
+        /* 제어판 영역 */
+        .control-panel { margin-top: 40px; width: 1500px; background: #333; padding: 30px; border-radius: 15px; color: white; box-sizing: border-box; }
+        .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .ctrl-section { background: #222; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 15px; }
+        button { padding: 12px; cursor: pointer; font-weight: bold; border: none; border-radius: 6px; color: white; background: #555; font-size: 16px; }
+        input[type="text"], select { padding: 12px; background: #111; color: white; border: 1px solid #444; border-radius: 6px; font-size: 16px; }
+        .color-label { font-size: 14px; color: #bbb; margin-bottom: -5px; margin-top: 8px; }
+        .color-picker { width: 100%; height: 35px; border: none; background: none; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -186,8 +189,8 @@
             <div class="score-area" id="away-col-3">0</div>
             
             <div class="info-area" id="clock-box">
-                <span id="display-period" style="font-size:20px; font-weight:bold; margin-bottom: 2px;">1st Half</span>
-                <span id="display-time" style="font-size:30px; font-weight:900; line-height: 1;">00:00</span>
+                <span id="display-period" style="font-size:30px; font-weight:bold; margin-bottom: 3px;">1st Half</span>
+                <span id="display-time" style="font-size:45px; font-weight:900; line-height: 1;">00:00</span>
             </div>
 
             <div class="score-area" id="home-col-1">0</div>
@@ -196,25 +199,24 @@
         </div>
     </div>
 
-    <!-- 제어판 영역 (동일 유지) -->
+    <!-- 제어판 (동일 기능 유지) -->
     <div class="control-panel" id="control-panel">
         <div class="ctrl-grid">
             <div class="ctrl-section">
                 <h4>🟦 AWAY 설정</h4>
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:3px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:5px;">
                     <button onclick="updateScore('away', 1)" style="background:#d32f2f">+1</button>
                     <button onclick="updateScore('away', 2)" style="background:#b71c1c">+2</button>
                     <button onclick="updateScore('away', 3)" style="background:#880e4f">+3</button>
                     <button onclick="updateScore('away', -1)">-1</button>
                 </div>
-                <button onclick="resetScore('away')" style="background:#000; border:1px solid #444;">점수 리셋 (0)</button>
+                <button onclick="resetScore('away')" style="background:#000; border:1px solid #444;">점수 리셋</button>
                 <input type="text" id="input-away-name" placeholder="팀명 입력">
                 <button onclick="applyName('away')" style="background:#2196F3">팀명 적용</button>
-                <div class="color-label">팀 배경색 변경:</div>
+                <div class="color-label">배경색 / 글자 크기:</div>
                 <input type="color" id="picker-away" class="color-picker" value="#ffffff" oninput="changeColor('away', this.value)">
-                <div class="color-label">글자 크기 조절:</div>
-                <input type="range" id="slider-away" min="20" max="70" value="45" oninput="changeFontSize('away', this.value)">
-                <input type="file" onchange="loadLogo(event, 'away-logo-img')" style="font-size:11px">
+                <input type="range" id="slider-away" min="30" max="100" value="68" oninput="changeFontSize('away', this.value)">
+                <input type="file" onchange="loadLogo(event, 'away-logo-img')">
             </div>
 
             <div class="ctrl-section">
@@ -227,38 +229,38 @@
                 <button onclick="toggleClock()" style="background:#673ab7">시계 보임/숨김</button>
                 <button onclick="swapCourts()" style="background:#ff9800">코트 체인지</button>
                 <select id="select-period" onchange="updatePeriod()">
-                    <option value="1st Quarter">1쿼터</option><option value="2nd Quarter">2쿼터</option>
-                    <option value="1st Half">전반전</option><option value="2nd Half">후반전</option>
-                    <option value="1 SET">1 SET</option><option value="2 SET">2 SET</option>
+                    <option value="1st Quarter">1쿼터</option>
+                    <option value="2nd Quarter">2쿼터</option>
+                    <option value="1st Half">전반전</option>
+                    <option value="2nd Half">후반전</option>
                 </select>
                 <input type="text" id="input-title" placeholder="대회명 입력">
                 <button onclick="applyTitle()" style="background:#2196F3">대회명 적용</button>
-                <div class="color-label">대회명/시계 배경색:</div>
+                <div class="color-label">대회명 배경색:</div>
                 <input type="color" id="picker-main-theme" class="color-picker" value="#050052" oninput="changeMainTheme(this.value)">
             </div>
 
             <div class="ctrl-section">
                 <h4>🟥 HOME 설정</h4>
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:3px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:5px;">
                     <button onclick="updateScore('home', 1)" style="background:#d32f2f">+1</button>
                     <button onclick="updateScore('home', 2)" style="background:#b71c1c">+2</button>
                     <button onclick="updateScore('home', 3)" style="background:#880e4f">+3</button>
                     <button onclick="updateScore('home', -1)">-1</button>
                 </div>
-                <button onclick="resetScore('home')" style="background:#000; border:1px solid #444;">점수 리셋 (0)</button>
+                <button onclick="resetScore('home')" style="background:#000; border:1px solid #444;">점수 리셋</button>
                 <input type="text" id="input-home-name" placeholder="팀명 입력">
                 <button onclick="applyName('home')" style="background:#2196F3">팀명 적용</button>
-                <div class="color-label">팀 배경색 변경:</div>
+                <div class="color-label">배경색 / 글자 크기:</div>
                 <input type="color" id="picker-home" class="color-picker" value="#ffffff" oninput="changeColor('home', this.value)">
-                <div class="color-label">글자 크기 조절:</div>
-                <input type="range" id="slider-home" min="20" max="70" value="45" oninput="changeFontSize('home', this.value)">
-                <input type="file" onchange="loadLogo(event, 'home-logo-img')" style="font-size:11px">
+                <input type="range" id="slider-home" min="30" max="100" value="68" oninput="changeFontSize('home', this.value)">
+                <input type="file" onchange="loadLogo(event, 'home-logo-img')">
             </div>
         </div>
     </div>
 
     <script>
-        // 로직 부분 동일 유지
+        // 로직 동일 유지
         let timer = null; let seconds = 0;
         function changeMainTheme(color) {
             const textColor = getContrast(color);
