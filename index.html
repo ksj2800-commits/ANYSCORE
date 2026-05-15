@@ -2,12 +2,12 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 마스터 스코어보드 (UI 최적화)</title>
+    <title>실시간 마스터 스코어보드 (레이아웃 최적화)</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Firebase 설정 (기존 본인의 설정값으로 유지)
+        // Firebase 설정 (기존 설정 유지)
         const firebaseConfig = {
   apiKey: "AIzaSyCppwwqDemt3_87UFgiiePPgozNjGzV6_g",
   authDomain: "anyscore-ba667.firebaseapp.com",
@@ -16,6 +16,7 @@
   storageBucket: "anyscore-ba667.firebasestorage.app",
   messagingSenderId: "895131866523",
   appId: "1:895131866523:web:148cd1e7e87dd2b3a47d3e"
+
         };
 
         const app = initializeApp(firebaseConfig);
@@ -94,20 +95,78 @@
 
     <style>
         body { margin: 0; font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        
+        /* 전체 높이 조정 (40px + 74px + 보더값 ≈ 120px -> 50px + 80px ≈ 136px) */
         .scoreboard { 
-            width: 1000px; height: 120px; background-color: #fff; border: 6px double #444; 
-            border-radius: 15px; display: flex; flex-direction: column; overflow: hidden; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3); box-sizing: border-box;
+            width: 1000px; 
+            background-color: #fff; 
+            border: 6px double #444; 
+            border-radius: 15px; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
+            box-sizing: border-box;
         }
-        .title-row { height: 40px; background-color: rgb(5, 0, 82); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 27px; font-weight: 900; }
-        .main-row { height: 74px; display: flex; align-items: center; gap: 0; }
-        .logo-area { width: 80px; height: 100%; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
-        .logo-area img { max-width: 65px; max-height: 65px; object-fit: contain; display: none; }
-        .team-area { flex: 1; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 45px; font-weight: 900; }
-        .score-area { width: 90px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 55px; font-weight: 900; }
-        .info-area { width: 180px; height: 100%; background-color: rgb(5, 0, 82); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        /* ⭐ 1열 대회명 영역: 40px -> 50px로 확대 (10px UP) */
+        .title-row { 
+            height: 50px; 
+            background-color: rgb(5, 0, 82); 
+            color: #fff; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 28px; 
+            font-weight: 900; 
+            text-transform: uppercase;
+        }
+
+        /* 메인 데이터 영역: 높이를 살짝 키우고 세로 정렬 강화 */
+        .main-row { 
+            height: 85px; 
+            display: flex; 
+            align-items: stretch; /* 자식 요소들이 부모 높이를 꽉 채우도록 설정 */
+            gap: 0; 
+        }
+
+        /* ⭐ 모든 하위 영역 공통: 세로 중앙 정렬 핵심 */
+        .logo-area, .team-area, .score-area, .info-area {
+            display: flex;
+            align-items: center;      /* 세로 중앙 */
+            justify-content: center;   /* 가로 중앙 */
+            height: 100%;             /* 부모 높이 꽉 채움 */
+            box-sizing: border-box;
+        }
+
+        .logo-area { width: 85px; padding: 5px; }
+        .logo-area img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        /* 팀명 영역: 글자수가 많아져도 세로축이 틀어지지 않게 조정 */
+        .team-area { 
+            flex: 1; 
+            font-size: 45px; 
+            font-weight: 900; 
+            line-height: 1; /* 줄간격으로 인한 밀림 방지 */
+        }
+
+        .score-area { 
+            width: 100px; 
+            font-size: 60px; 
+            font-weight: 900; 
+            line-height: 1;
+        }
+
+        .info-area { 
+            width: 180px; 
+            flex-direction: column; /* 시계와 피리어드는 세로로 배치하되 묶음 전체가 중앙 */
+            background-color: rgb(5, 0, 82); 
+            color: #fff; 
+        }
+
         .time-hidden { visibility: hidden; opacity: 0; }
 
+        /* 제어판 스타일 */
         .control-panel { margin-top: 30px; width: 1000px; background: #333; padding: 20px; border-radius: 10px; color: white; box-sizing: border-box; }
         .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
         .ctrl-section { background: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
@@ -119,7 +178,6 @@
 </head>
 <body>
 
-    <!-- 스코어보드 본체 -->
     <div class="scoreboard">
         <div class="title-row" id="display-tournament-box">
             <span id="display-tournament-text">PREMIER SPORTS LEAGUE</span>
@@ -128,20 +186,21 @@
             <div class="logo-area" id="away-col-1"><img id="away-logo-img"></div>
             <div class="team-area" id="away-col-2">AWAY</div>
             <div class="score-area" id="away-col-3">0</div>
+            
             <div class="info-area" id="clock-box">
-                <span id="display-period" style="font-size:20px; font-weight:bold;">1st Half</span>
-                <span id="display-time" style="font-size:28px; font-weight:900;">00:00</span>
+                <span id="display-period" style="font-size:20px; font-weight:bold; margin-bottom: 2px;">1st Half</span>
+                <span id="display-time" style="font-size:30px; font-weight:900; line-height: 1;">00:00</span>
             </div>
+
             <div class="score-area" id="home-col-1">0</div>
             <div class="team-area" id="home-col-2">HOME</div>
             <div class="logo-area" id="home-col-3"><img id="home-logo-img"></div>
         </div>
     </div>
 
-    <!-- 제어판 -->
+    <!-- 제어판 (동일 기능 유지) -->
     <div class="control-panel" id="control-panel">
         <div class="ctrl-grid">
-            <!-- AWAY 영역 -->
             <div class="ctrl-section">
                 <h4>🟦 AWAY 설정</h4>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:3px;">
@@ -160,7 +219,6 @@
                 <input type="file" onchange="loadLogo(event, 'away-logo-img')" style="font-size:11px">
             </div>
 
-            <!-- 공통 설정 영역 -->
             <div class="ctrl-section">
                 <h4>⏱ 공통 설정</h4>
                 <div style="display:flex; gap:5px;">
@@ -170,8 +228,6 @@
                 </div>
                 <button onclick="toggleClock()" style="background:#673ab7">시계 보임/숨김</button>
                 <button onclick="swapCourts()" style="background:#ff9800">코트 체인지</button>
-                
-                <div class="color-label" style="margin-top:10px;">피리어드/쿼터 선택:</div>
                 <select id="select-period" onchange="updatePeriod()">
                     <optgroup label="QUARTER">
                         <option value="1st Quarter">1쿼터</option><option value="2nd Quarter">2쿼터</option>
@@ -182,17 +238,12 @@
                         <option value="1 SET">1 SET</option><option value="2 SET">2 SET</option><option value="3 SET">3 SET</option>
                     </optgroup>
                 </select>
-
-                <div class="color-label">대회 타이틀 설정:</div>
                 <input type="text" id="input-title" placeholder="대회명 입력">
                 <button onclick="applyTitle()" style="background:#2196F3">대회명 적용</button>
-                
-                <!-- ⭐ 요청하신 위치: 대회명 적용 버튼 아래로 컬러 피커 이동 -->
                 <div class="color-label">대회명/시계 배경색:</div>
                 <input type="color" id="picker-main-theme" class="color-picker" value="#050052" oninput="changeMainTheme(this.value)">
             </div>
 
-            <!-- HOME 영역 -->
             <div class="ctrl-section">
                 <h4>🟥 HOME 설정</h4>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:3px;">
@@ -214,8 +265,8 @@
     </div>
 
     <script>
+        // 로직 부분은 이전과 동일하므로 생략하지 않고 포함 (동기화 보장)
         let timer = null; let seconds = 0;
-        
         function changeMainTheme(color) {
             const textColor = getContrast(color);
             document.getElementById('display-tournament-box').style.backgroundColor = color;
@@ -224,20 +275,8 @@
             document.getElementById('clock-box').style.color = textColor;
             syncToDB();
         }
-
-        function updateScore(t,v){ 
-            const id=t==='away'?'away-col-3':'home-col-1'; 
-            const el=document.getElementById(id); 
-            el.innerText=Math.max(0,parseInt(el.innerText)+v); 
-            syncToDB(); 
-        }
-
-        function resetScore(t){ 
-            const id=t==='away'?'away-col-3':'home-col-1'; 
-            document.getElementById(id).innerText='0'; 
-            syncToDB(); 
-        }
-
+        function updateScore(t,v){ const id=t==='away'?'away-col-3':'home-col-1'; const el=document.getElementById(id); el.innerText=Math.max(0,parseInt(el.innerText)+v); syncToDB(); }
+        function resetScore(t){ const id=t==='away'?'away-col-3':'home-col-1'; document.getElementById(id).innerText='0'; syncToDB(); }
         function applyName(t){ const v=document.getElementById(`input-${t}-name`).value; if(v) document.getElementById(`${t}-col-2`).innerText=v; syncToDB(); }
         function changeFontSize(t,s){ document.getElementById(`${t}-col-2`).style.fontSize=s+'px'; syncToDB(); }
         function changeColor(t,c){ 
@@ -245,10 +284,7 @@
             ['1','2','3'].forEach(n=>{ const el=document.getElementById(`${t}-col-${n}`); el.style.backgroundColor=c; el.style.color=ct; }); 
             syncToDB(); 
         }
-        function getContrast(h){ 
-            const r=parseInt(h.substr(1,2),16), g=parseInt(h.substr(3,2),16), b=parseInt(h.substr(5,2),16); 
-            return ((r*299)+(g*587)+(b*114))/1000 >= 128 ? 'black' : 'white'; 
-        }
+        function getContrast(h){ const r=parseInt(h.substr(1,2),16), g=parseInt(h.substr(3,2),16), b=parseInt(h.substr(5,2),16); return ((r*299)+(g*587)+(b*114))/1000 >= 128 ? 'black' : 'white'; }
         function startTimer(){ if(!timer) timer=setInterval(()=>{seconds++;updateClock();},1000); }
         function stopTimer(){ clearInterval(timer); timer=null; syncToDB(); }
         function resetTimer(){ stopTimer(); seconds=0; updateClock(); }
