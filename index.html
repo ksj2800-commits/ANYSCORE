@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>실시간 마스터 스코어보드 (상태 유지 버전)</title>
+    <title>실시간 마스터 스코어보드 (전체 리셋 기능 포함)</title>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -26,7 +26,6 @@
         const params = new URLSearchParams(window.location.search);
         const isControlMode = params.get('mode') === 'control';
 
-        // 전역 변수로 타이머 관리
         window.seconds = 0;
         window.timer = null;
 
@@ -40,7 +39,6 @@
                 });
             } else {
                 document.body.style.backgroundColor = '#1a1a1a';
-                // 제어판 모드일 때: DB에서 기존 값을 한 번 가져와서 입력창들에 채우기
                 get(scoreRef).then((snapshot) => {
                     const data = snapshot.val();
                     if (data) {
@@ -49,7 +47,6 @@
                     }
                 });
                 
-                // 실시간 변경사항도 제어판에 반영 (다른 기기에서 수정 시 동기화)
                 onValue(scoreRef, (snapshot) => {
                     const data = snapshot.val();
                     if (data) updateDisplay(data);
@@ -67,7 +64,6 @@
             }
         };
 
-        // DB 데이터를 제어판 입력창들에 채워넣는 함수
         function syncControlPanel(data) {
             if (data.awayName) document.getElementById('input-away-name').value = data.awayName;
             if (data.homeName) document.getElementById('input-home-name').value = data.homeName;
@@ -78,8 +74,6 @@
             if (data.awayFontSize) document.getElementById('slider-away').value = parseInt(data.awayFontSize);
             if (data.homeFontSize) document.getElementById('slider-home').value = parseInt(data.homeFontSize);
             if (data.period) document.getElementById('select-period').value = data.period;
-            
-            // 시간 복구 (00:00 형태를 초 단위로 변환)
             if (data.time) {
                 const parts = data.time.split(':');
                 window.seconds = parseInt(parts[0]) * 60 + parseInt(parts[1]);
@@ -119,26 +113,20 @@
             document.getElementById('display-time').innerText = data.time || '00:00';
             document.getElementById('display-period').innerText = data.period || '1st Half';
             document.getElementById('display-tournament-text').innerText = data.title || 'PREMIER SPORTS LEAGUE';
-            
             document.getElementById('away-col-2').style.fontSize = data.awayFontSize || '68px';
             document.getElementById('home-col-2').style.fontSize = data.homeFontSize || '68px';
-            
             const awayParts = ['away-col-1','away-col-2','away-col-3'];
             const homeParts = ['home-col-1','home-col-2','home-col-3'];
-            
             if(data.awayBg) awayParts.forEach(id => { const el = document.getElementById(id); el.style.backgroundColor = data.awayBg; el.style.color = data.awayColor; });
             if(data.homeBg) homeParts.forEach(id => { const el = document.getElementById(id); el.style.backgroundColor = data.homeBg; el.style.color = data.homeColor; });
-
             if(data.mainThemeBg) {
                 document.getElementById('display-tournament-box').style.backgroundColor = data.mainThemeBg;
                 document.getElementById('display-tournament-box').style.color = data.mainThemeColor;
                 document.getElementById('clock-box').style.backgroundColor = data.mainThemeBg;
                 document.getElementById('clock-box').style.color = data.mainThemeColor;
             }
-            
             if(data.timeVisible === false) document.getElementById('display-time').classList.add('time-hidden');
             else document.getElementById('display-time').classList.remove('time-hidden');
-
             if(data.awayLogo && data.awayLogo.length > 50) { const img = document.getElementById('away-logo-img'); img.src = data.awayLogo; img.style.display = 'block'; }
             if(data.homeLogo && data.homeLogo.length > 50) { const img = document.getElementById('home-logo-img'); img.src = data.homeLogo; img.style.display = 'block'; }
         }
@@ -151,8 +139,8 @@
         .main-row { height: 128px; display: flex; align-items: stretch; }
         .logo-area { width: 128px; padding: 8px; display: flex; align-items: center; justify-content: center; }
         .logo-area img { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
-        .team-area { flex: 1; font-size: 68px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; transform: translateY(0px); }
-        .score-area { width: 150px; font-size: 90px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; transform: translateY(0px); }
+        .team-area { flex: 1; font-size: 68px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; }
+        .score-area { width: 150px; font-size: 90px; font-weight: 900; display: flex; align-items: center; justify-content: center; line-height: 1; }
         .info-area { width: 270px; flex-direction: column; background-color: rgb(5, 0, 82); color: #fff; display: flex; align-items: center; justify-content: center; }
         .time-hidden { visibility: hidden; opacity: 0; }
         .control-panel { width: 100%; max-width: 1500px; background: #333; padding: 25px; border-radius: 15px; color: white; box-sizing: border-box; }
@@ -162,7 +150,6 @@
         button { padding: 14px 10px; cursor: pointer; font-weight: bold; border: none; border-radius: 6px; color: white; background: #555; font-size: 16px; }
         button:active { filter: brightness(1.3); }
         input[type="text"], select { padding: 12px; background: #111; color: white; border: 1px solid #444; border-radius: 6px; font-size: 16px; }
-        .color-label { font-size: 14px; color: #bbb; margin-bottom: -5px; }
         @media (max-width: 768px) { .ctrl-grid { grid-template-columns: 1fr; } button { font-size: 18px; padding: 18px; } }
     </style>
 </head>
@@ -186,6 +173,7 @@
 
     <div class="control-panel" id="control-panel">
         <div class="ctrl-grid">
+            <!-- AWAY -->
             <div class="ctrl-section">
                 <h4>🟦 AWAY 설정</h4>
                 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
@@ -194,19 +182,19 @@
                     <button onclick="updateScore('away', 3)" style="background:#880e4f">+3</button>
                     <button onclick="updateScore('away', -1)">-1</button>
                 </div>
-                <button onclick="resetScore('away')" style="background:#000; border:1px solid #555;">점수 리셋</button>
+                <button onclick="resetScore('away')" style="background:#000;">점수 리셋</button>
                 <input type="text" id="input-away-name" placeholder="AWAY 팀명">
                 <button onclick="applyName('away')" style="background:#2196F3">팀명 적용</button>
-                <div class="color-label">배경색 / 글자 크기:</div>
                 <input type="color" id="picker-away" style="width:100%; height:45px;" oninput="changeColor('away', this.value)">
                 <input type="range" id="slider-away" min="30" max="100" value="68" oninput="changeFontSize('away', this.value)">
                 <input type="file" onchange="loadLogo(event, 'away-logo-img')">
             </div>
 
+            <!-- COMMON (여기 하단에 전체 초기화 추가) -->
             <div class="ctrl-section">
                 <h4>⏱ 공통 설정</h4>
                 <div style="display:flex; gap:8px;">
-                    <button onclick="startTimer()" style="background:#2e7d32; flex:1;">타이머 시작</button>
+                    <button onclick="startTimer()" style="background:#2e7d32; flex:1;">시작</button>
                     <button onclick="stopTimer()" style="background:#f57c00; flex:1;">정지</button>
                 </div>
                 <button onclick="resetTimer()" style="background:#c62828;">시간 초기화</button>
@@ -221,8 +209,12 @@
                 <input type="text" id="input-title" placeholder="대회명 입력">
                 <button onclick="applyTitle()" style="background:#2196F3">대회명 적용</button>
                 <input type="color" id="picker-main-theme" style="width:100%; height:45px;" value="#050052" oninput="changeMainTheme(this.value)">
+                
+                <!-- ⭐ 전체 초기화 버튼 추가 -->
+                <button onclick="fullReset()" style="background:#000; color:#ff3d00; border:2px solid #ff3d00; margin-top:10px; font-size:18px;">🔄 전체 데이터 초기화</button>
             </div>
 
+            <!-- HOME -->
             <div class="ctrl-section">
                 <h4>🟥 HOME 설정</h4>
                 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
@@ -231,10 +223,9 @@
                     <button onclick="updateScore('home', 3)" style="background:#880e4f">+3</button>
                     <button onclick="updateScore('home', -1)">-1</button>
                 </div>
-                <button onclick="resetScore('home')" style="background:#000; border:1px solid #555;">점수 리셋</button>
+                <button onclick="resetScore('home')" style="background:#000;">점수 리셋</button>
                 <input type="text" id="input-home-name" placeholder="HOME 팀명">
                 <button onclick="applyName('home')" style="background:#2196F3">팀명 적용</button>
-                <div class="color-label">배경색 / 글자 크기:</div>
                 <input type="color" id="picker-home" style="width:100%; height:45px;" oninput="changeColor('home', this.value)">
                 <input type="range" id="slider-home" min="30" max="100" value="68" oninput="changeFontSize('home', this.value)">
                 <input type="file" onchange="loadLogo(event, 'home-logo-img')">
@@ -261,29 +252,44 @@
             syncToDB(); 
         }
         function getContrast(h){ const r=parseInt(h.substr(1,2),16), g=parseInt(h.substr(3,2),16), b=parseInt(h.substr(5,2),16); return ((r*299)+(g*587)+(b*114))/1000 >= 128 ? 'black' : 'white'; }
-        
         function startTimer(){ if(!window.timer) window.timer=setInterval(()=>{window.seconds++;updateClock();},1000); }
         function stopTimer(){ clearInterval(window.timer); window.timer=null; syncToDB(); }
         function resetTimer(){ stopTimer(); window.seconds=0; updateClock(); syncToDB(); }
-        function updateClock(){ 
-            const m=String(Math.floor(window.seconds/60)).padStart(2,'0'), s=String(window.seconds%60).padStart(2,'0'); 
-            document.getElementById('display-time').innerText=`${m}:${s}`; 
-            syncToDB(); 
-        }
+        function updateClock(){ const m=String(Math.floor(window.seconds/60)).padStart(2,'0'), s=String(window.seconds%60).padStart(2,'0'); document.getElementById('display-time').innerText=`${m}:${s}`; syncToDB(); }
         function updatePeriod(){ document.getElementById('display-period').innerText=document.getElementById('select-period').value; syncToDB(); }
         function applyTitle(){ document.getElementById('display-tournament-text').innerText=document.getElementById('input-title').value; syncToDB(); }
-        function loadLogo(e, id) {
-            const reader = new FileReader();
-            reader.onload = () => { const img = document.getElementById(id); img.src = reader.result; img.style.display='block'; syncToDB(); };
-            reader.readAsDataURL(e.target.files[0]);
-        }
+        function loadLogo(e, id) { const reader = new FileReader(); reader.onload = () => { const img = document.getElementById(id); img.src = reader.result; img.style.display='block'; syncToDB(); }; reader.readAsDataURL(e.target.files[0]); }
         function toggleClock() { document.getElementById('display-time').classList.toggle('time-hidden'); syncToDB(); }
+        
         function swapCourts(){
             const a={n:document.getElementById('away-col-2').innerText, s:document.getElementById('away-col-3').innerText, p:document.getElementById('picker-away').value, sl:document.getElementById('slider-away').value, lg:document.getElementById('away-logo-img').src};
             const h={n:document.getElementById('home-col-2').innerText, s:document.getElementById('home-col-1').innerText, p:document.getElementById('picker-home').value, sl:document.getElementById('slider-home').value, lg:document.getElementById('home-logo-img').src};
             document.getElementById('away-col-2').innerText=h.n; document.getElementById('away-col-3').innerText=h.s; document.getElementById('picker-away').value=h.p; document.getElementById('slider-away').value=h.sl; document.getElementById('away-logo-img').src=h.lg;
             document.getElementById('home-col-2').innerText=a.n; document.getElementById('home-col-1').innerText=a.s; document.getElementById('picker-home').value=a.p; document.getElementById('slider-home').value=a.sl; document.getElementById('home-logo-img').src=a.lg;
             changeColor('away',h.p); changeFontSize('away',h.sl); changeColor('home',a.p); changeFontSize('home',a.sl); syncToDB();
+        }
+
+        // ⭐ 전체 초기화 로직
+        window.fullReset = function() {
+            if(!confirm("정말 모든 데이터를 초기화하시겠습니까? 팀명, 점수, 시간 등이 모두 기본값으로 돌아갑니다.")) return;
+            
+            // 데이터 초기화
+            document.getElementById('away-col-3').innerText = '0';
+            document.getElementById('home-col-1').innerText = '0';
+            document.getElementById('away-col-2').innerText = 'AWAY';
+            document.getElementById('home-col-2').innerText = 'HOME';
+            document.getElementById('display-time').innerText = '00:00';
+            document.getElementById('display-period').innerText = '1st Half';
+            document.getElementById('display-tournament-text').innerText = 'PREMIER SPORTS LEAGUE';
+            window.seconds = 0;
+            stopTimer();
+            
+            // DB에 즉시 반영
+            syncToDB();
+            
+            // 입력창들 비우기 위해 새로고침
+            alert("초기화가 완료되었습니다.");
+            location.reload();
         }
     </script>
 </body>
